@@ -1,58 +1,5 @@
 import streamlit as st
 
-<<<<<<< HEAD
-st.set_page_config(
-    page_title="SkillBridge",
-    page_icon="🚀",
-    layout="wide"
-)
-
-st.title("🚀 SkillBridge")
-
-st.subheader(
-    "Employability Gap Analyzer & Coding Assessment Engine"
-)
-
-st.write(
-    "Discover your skill gaps and prove your skills "
-    "through a personalized coding challenge."
-)
-
-st.divider()
-
-col1, col2 = st.columns(2)
-
-with col1:
-    resume = st.text_area(
-        "📄 Your Resume",
-        height=300,
-        placeholder="Paste your resume here..."
-    )
-
-with col2:
-    job_description = st.text_area(
-        "💼 Job Description",
-        height=300,
-        placeholder="Paste the job description here..."
-    )
-
-if st.button("🔍 Analyze Skill Gap", type="primary"):
-
-    if not resume.strip():
-        st.warning("Please enter your resume.")
-
-    elif not job_description.strip():
-        st.warning("Please enter the job description.")
-
-    else:
-        st.success("Resume and Job Description received!")
-
-        st.header("💻 Coding Challenge")
-
-        st.info(
-            "Coding engine integration will be loaded here."
-        )
-=======
 from ui.styles import apply_styles
 from ui.components import (
     show_header,
@@ -62,7 +9,10 @@ from ui.components import (
 )
 
 
-# Page configuration
+# =====================================================
+# PAGE CONFIGURATION
+# =====================================================
+
 st.set_page_config(
     page_title="SkillBridge",
     page_icon="🚀",
@@ -70,24 +20,30 @@ st.set_page_config(
 )
 
 
-# Apply custom styling
+# =====================================================
+# CUSTOM STYLING
+# =====================================================
+
 apply_styles()
 
 
-# Session state
+# =====================================================
+# SESSION STATE
+# =====================================================
+
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
-
 if "resume" not in st.session_state:
     st.session_state.resume = ""
-
 
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
 
 
-# ---------------- HOME PAGE ----------------
+# =====================================================
+# HOME PAGE
+# =====================================================
 
 if st.session_state.page == "home":
 
@@ -125,13 +81,14 @@ if st.session_state.page == "home":
 
             st.session_state.resume = resume
             st.session_state.job_description = job_description
-
             st.session_state.page = "results"
 
             st.rerun()
 
 
-# ---------------- RESULTS PAGE ----------------
+# =====================================================
+# RESULTS PAGE
+# =====================================================
 
 elif st.session_state.page == "results":
 
@@ -140,7 +97,7 @@ elif st.session_state.page == "results":
     st.markdown("## 📊 Your Skill Gap Analysis")
 
     # Temporary demo data.
-    # Disha's AI logic will replace this later.
+    # DISHA's AI logic will replace this later.
 
     score = 72
 
@@ -180,17 +137,17 @@ elif st.session_state.page == "results":
     ):
 
         st.session_state.page = "assessment"
-
         st.rerun()
 
     if st.button("← Analyze Another Resume"):
 
         st.session_state.page = "home"
-
         st.rerun()
 
 
-# ---------------- ASSESSMENT PAGE ----------------
+# =====================================================
+# ASSESSMENT PAGE
+# =====================================================
 
 elif st.session_state.page == "assessment":
 
@@ -212,7 +169,7 @@ elif st.session_state.page == "assessment":
 
     code = st.text_area(
         "Python Code",
-        value="""def solve(data):
+        value="""def solution(data):
     # Write your solution here
     pass
 """,
@@ -242,6 +199,4 @@ elif st.session_state.page == "assessment":
         ):
 
             st.session_state.page = "results"
-
             st.rerun()
->>>>>>> feature/ancha-ui
