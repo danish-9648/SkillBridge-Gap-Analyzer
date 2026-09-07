@@ -23,7 +23,10 @@ def ask_llm(prompt):
 
             response = client.models.generate_content(
                 model="gemini-3.6-flash",
-                contents=prompt
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json"
+                }
             )
 
             if not response.text:
@@ -38,6 +41,5 @@ def ask_llm(prompt):
             if attempt < max_retries - 1:
                 print("Retrying in 5 seconds...")
                 time.sleep(5)
-
             else:
                 raise
