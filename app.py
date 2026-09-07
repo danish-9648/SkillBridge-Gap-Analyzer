@@ -1,5 +1,7 @@
 import streamlit as st
 
+from coding.executor import execute_solution
+
 from ui.styles import apply_styles
 from ui.components import (
     show_header,
@@ -9,7 +11,8 @@ from ui.components import (
 )
 
 
-# Page configuration
+# ---------------- PAGE CONFIGURATION ----------------
+
 st.set_page_config(
     page_title="SkillBridge",
     page_icon="🚀",
@@ -21,14 +24,13 @@ st.set_page_config(
 apply_styles()
 
 
-# Session state
+# ---------------- SESSION STATE ----------------
+
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
-
 if "resume" not in st.session_state:
     st.session_state.resume = ""
-
 
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
@@ -41,20 +43,55 @@ if st.session_state.page == "home":
     show_header()
 
     st.markdown(
-        "### 🎯 Compare your resume with your dream job"
+        """
+        <div style="text-align:center; margin-bottom:25px;">
+            <h2>🎯 Compare Your Resume With Your Dream Job</h2>
+            <p style="color:#777;">
+                Discover your skill gaps and get a personalized coding challenge.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    resume = st.text_area(
-        "📄 Your Resume",
-        placeholder="Paste your resume text here...",
-        height=250,
-    )
+    # Resume and Job Description side by side
+    col1, col2 = st.columns(2)
 
-    job_description = st.text_area(
-        "💼 Job Description",
-        placeholder="Paste the job description here...",
-        height=250,
-    )
+    with col1:
+
+        st.markdown("### 📄 Your Resume")
+
+        resume = st.text_area(
+            "Resume",
+            placeholder=(
+                "Paste your resume text here...\n\n"
+                "Example:\n"
+                "• Python\n"
+                "• JavaScript\n"
+                "• React\n"
+                "• Git"
+            ),
+            height=300,
+            label_visibility="collapsed",
+        )
+
+    with col2:
+
+        st.markdown("### 💼 Job Description")
+
+        job_description = st.text_area(
+            "Job Description",
+            placeholder=(
+                "Paste the job description here...\n\n"
+                "Example:\n"
+                "Looking for a Python developer with "
+                "REST API, Docker and testing skills..."
+            ),
+            height=300,
+            label_visibility="collapsed",
+        )
+
+    st.markdown("")
 
     if st.button(
         "🔍 Analyze My Skills",
@@ -84,7 +121,17 @@ elif st.session_state.page == "results":
 
     show_header()
 
-    st.markdown("## 📊 Your Skill Gap Analysis")
+    st.markdown(
+        """
+        <div style="text-align:center; margin-bottom:20px;">
+            <h2>📊 Your Skill Gap Analysis</h2>
+            <p style="color:#777;">
+                Here's how your profile matches the job requirements.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Temporary demo data.
     # Disha's AI logic will replace this later.
@@ -108,6 +155,20 @@ elif st.session_state.page == "results":
 
     st.divider()
 
+    st.markdown(
+        """
+        <div style="text-align:center; margin:15px 0 25px 0;">
+            <h3>💡 What This Means</h3>
+            <p style="color:#777;">
+                You have a solid foundation for this role.
+                Strengthening the missing skills below can improve
+                your job readiness.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     show_skills(
         matched_skills,
         missing_skills,
@@ -115,9 +176,17 @@ elif st.session_state.page == "results":
 
     st.divider()
 
-    st.info(
-        "💡 Your personalized assessment will focus "
-        "on one of the skills you need to improve."
+    st.markdown(
+        """
+        <div class="recommendation-box">
+            <h3>🎯 Recommended Next Step</h3>
+            <p>
+                Your personalized assessment will focus on one
+                of the skills you need to improve.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     if st.button(
@@ -130,7 +199,9 @@ elif st.session_state.page == "results":
 
         st.rerun()
 
-    if st.button("← Analyze Another Resume"):
+    if st.button(
+        "← Analyze Another Resume"
+    ):
 
         st.session_state.page = "home"
 
@@ -144,13 +215,15 @@ elif st.session_state.page == "assessment":
     show_header()
 
     challenge = {
-        "title": "REST API Challenge",
+        "title": "Sort a List of Numbers",
         "description": (
-            "Create a Python function that processes "
-            "a list of API response objects and returns "
-            "only the successful responses."
+            "Create a Python function that takes a list "
+            "of numbers and returns the numbers in "
+            "ascending order."
         ),
         "difficulty": "Easy",
+        "example_input": "[3, 1, 2]",
+        "example_output": "[1, 2, 3]",
     }
 
     show_challenge(challenge)
@@ -159,14 +232,17 @@ elif st.session_state.page == "assessment":
 
     code = st.text_area(
         "Python Code",
-        value="""def solve(data):
+        value="""def solution(numbers):
     # Write your solution here
-    pass
+    return sorted(numbers)
 """,
         height=300,
     )
 
     col1, col2 = st.columns(2)
+
+
+    # ---------------- RUN CODE ----------------
 
     with col1:
 
@@ -176,10 +252,42 @@ elif st.session_state.page == "assessment":
             use_container_width=True,
         ):
 
-            st.info(
-                "Code execution will be connected "
-                "to the Pyodide coding engine."
-            )
+            result = execute_solution(code)
+
+            if not result["success"]:
+
+                st.error(result["error"])
+
+            else:
+
+                try:
+
+                    test_input = [3, 1, 2]
+
+                    output = result["solution"](test_input)
+
+                    st.success(
+                        "✅ Code executed successfully!"
+                    )
+
+                    st.write(
+                        "Test Input:",
+                        test_input,
+                    )
+
+                    st.write(
+                        "Your Output:",
+                        output,
+                    )
+
+                except Exception as error:
+
+                    st.error(
+                        f"Runtime Error: {error}"
+                    )
+
+
+    # ---------------- BACK BUTTON ----------------
 
     with col2:
 
