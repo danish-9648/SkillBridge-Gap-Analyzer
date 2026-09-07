@@ -1,6 +1,7 @@
 import streamlit as st
 
 from coding.executor import execute_solution
+from services.skillbridge_service import run_skillbridge_analysis
 
 from ui.styles import apply_styles
 from ui.components import (
@@ -34,6 +35,9 @@ if "resume" not in st.session_state:
 
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
+
+if "analysis_result" not in st.session_state:
+    st.session_state.analysis_result = {}
 
 
 # ---------------- HOME PAGE ----------------
@@ -107,12 +111,28 @@ if st.session_state.page == "home":
 
         else:
 
-            st.session_state.resume = resume
-            st.session_state.job_description = job_description
+            with st.spinner("🤖 Analyzing your resume..."):
 
-            st.session_state.page = "results"
+                try:
 
-            st.rerun()
+                    result = run_skillbridge_analysis(
+                        resume,
+                        job_description
+                    )
+
+                    st.session_state.resume = resume
+                    st.session_state.job_description = job_description
+                    st.session_state.analysis_result = result
+
+                    st.session_state.page = "results"
+
+                    st.rerun()
+
+                except Exception as error:
+
+                    st.error(
+                        f"AI analysis failed: {error}"
+                    )
 
 
 # ---------------- RESULTS PAGE ----------------
@@ -133,23 +153,31 @@ elif st.session_state.page == "results":
         unsafe_allow_html=True,
     )
 
-    # Temporary demo data.
-    # Disha's AI logic will replace this later.
+    # Get AI analysis result
+    result = st.session_state.get(
+        "analysis_result",
+        {}
+    )
 
-    score = 72
+    analysis = result.get(
+        "analysis",
+        {}
+    )
 
-    matched_skills = [
-        "Python",
-        "JavaScript",
-        "React",
-        "Git",
-    ]
+    score = analysis.get(
+        "match_score",
+        0
+    )
 
-    missing_skills = [
-        "REST API",
-        "Docker",
-        "Testing",
-    ]
+    matched_skills = analysis.get(
+        "matched_skills",
+        []
+    )
+
+    missing_skills = analysis.get(
+        "missing_skills",
+        []
+    )
 
     show_score(score)
 
@@ -214,17 +242,52 @@ elif st.session_state.page == "assessment":
 
     show_header()
 
-    challenge = {
-        "title": "Sort a List of Numbers",
-        "description": (
-            "Create a Python function that takes a list "
-            "of numbers and returns the numbers in "
-            "ascending order."
-        ),
-        "difficulty": "Easy",
-        "example_input": "[3, 1, 2]",
-        "example_output": "[1, 2, 3]",
-    }
+    # Get AI-generated coding questions
+    result = st.session_state.get(
+        "analysis_result",
+        {}
+    )
+
+    questions_data = result.get(
+        "coding_questions",
+        {}
+    )
+
+    questions = questions_data.get(
+        "questions",
+        []
+    )
+
+    if questions:
+
+        question = questions[0]
+
+        challenge = {
+            "title": "Personalized Coding Challenge",
+            "description": question.get(
+                "question",
+                ""
+            ),
+            "difficulty": question.get(
+                "difficulty",
+                "Easy"
+            ),
+            "example_input": "Based on the problem statement",
+            "example_output": "Write your solution",
+        }
+
+    else:
+
+        challenge = {
+            "title": "Coding Challenge",
+            "description": (
+                "No personalized coding question "
+                "was generated."
+            ),
+            "difficulty": "Easy",
+            "example_input": "N/A",
+            "example_output": "N/A",
+        }
 
     show_challenge(challenge)
 
@@ -241,9 +304,6 @@ elif st.session_state.page == "assessment":
 
     col1, col2 = st.columns(2)
 
-
-    # ---------------- RUN CODE ----------------
-
     with col1:
 
         if st.button(
@@ -256,7 +316,9 @@ elif st.session_state.page == "assessment":
 
             if not result["success"]:
 
-                st.error(result["error"])
+                st.error(
+                    result["error"]
+                )
 
             else:
 
@@ -264,7 +326,9 @@ elif st.session_state.page == "assessment":
 
                     test_input = [3, 1, 2]
 
-                    output = result["solution"](test_input)
+                    output = result["solution"](
+                        test_input
+                    )
 
                     st.success(
                         "✅ Code executed successfully!"
@@ -272,12 +336,12 @@ elif st.session_state.page == "assessment":
 
                     st.write(
                         "Test Input:",
-                        test_input,
+                        test_input
                     )
 
                     st.write(
                         "Your Output:",
-                        output,
+                        output
                     )
 
                 except Exception as error:
@@ -285,9 +349,6 @@ elif st.session_state.page == "assessment":
                     st.error(
                         f"Runtime Error: {error}"
                     )
-
-
-    # ---------------- BACK BUTTON ----------------
 
     with col2:
 
