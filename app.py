@@ -1,8 +1,5 @@
 import streamlit as st
 
-from coding.executor import execute_solution
-from services.skillbridge_service import run_skillbridge_analysis
-
 from ui.styles import apply_styles
 from ui.components import (
     show_header,
@@ -11,8 +8,17 @@ from ui.components import (
     show_challenge,
 )
 
+from services.analyzer import analyze_resume
+from services.question_generator import generate_questions
 
-# ---------------- PAGE CONFIGURATION ----------------
+from coding.executor import execute_solution
+from coding.evaluator import evaluate_solution
+from coding.test_cases import DEFAULT_TEST_CASES
+
+
+# =====================================================
+# PAGE CONFIGURATION
+# =====================================================
 
 st.set_page_config(
     page_title="SkillBridge",
@@ -21,11 +27,16 @@ st.set_page_config(
 )
 
 
-# Apply custom styling
+# =====================================================
+# CUSTOM STYLING
+# =====================================================
+
 apply_styles()
 
 
-# ---------------- SESSION STATE ----------------
+# =====================================================
+# SESSION STATE
+# =====================================================
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
@@ -36,66 +47,114 @@ if "resume" not in st.session_state:
 if "job_description" not in st.session_state:
     st.session_state.job_description = ""
 
-if "analysis_result" not in st.session_state:
-    st.session_state.analysis_result = {}
+if "analysis" not in st.session_state:
+    st.session_state.analysis = None
+
+if "questions" not in st.session_state:
+    st.session_state.questions = None
+
+if "selected_question" not in st.session_state:
+    st.session_state.selected_question = None
+
+if "coding_result" not in st.session_state:
+    st.session_state.coding_result = None
 
 
-# ---------------- HOME PAGE ----------------
+# =====================================================
+# FALLBACK ANALYSIS
+# =====================================================
+
+def fallback_analysis():
+    return {
+        "match_score": 72,
+        "matched_skills": [
+            "Python",
+            "Git",
+        ],
+        "missing_skills": [
+            "REST API",
+            "Docker",
+            "Testing",
+        ],
+        "strengths": [
+            "Good Python foundation",
+            "Basic software development experience",
+        ],
+        "weaknesses": [
+            "Limited REST API experience",
+            "Limited Docker experience",
+        ],
+        "skill_gaps": [
+            "REST API",
+            "Docker",
+            "Testing",
+        ],
+        "recommendations": [
+            "Practice building REST APIs with Python",
+            "Learn Docker fundamentals",
+            "Practice automated testing",
+        ],
+    }
+
+
+# =====================================================
+# FALLBACK QUESTIONS
+# =====================================================
+
+def fallback_questions():
+    return {
+        "questions": [
+            {
+                "question": (
+                    "Write a Python function named solution(numbers) "
+                    "that returns the sum of all numbers in a list."
+                ),
+                "skill": "Python",
+                "difficulty": "Easy",
+            },
+            {
+                "question": (
+                    "Explain how a REST API works and describe "
+                    "the difference between GET and POST requests."
+                ),
+                "skill": "REST API",
+                "difficulty": "Medium",
+            },
+            {
+                "question": (
+                    "Explain how Docker containers help developers "
+                    "maintain consistent application environments."
+                ),
+                "skill": "Docker",
+                "difficulty": "Medium",
+            },
+        ]
+    }
+
+
+# =====================================================
+# HOME PAGE
+# =====================================================
 
 if st.session_state.page == "home":
 
     show_header()
 
     st.markdown(
-        """
-        <div style="text-align:center; margin-bottom:25px;">
-            <h2>🎯 Compare Your Resume With Your Dream Job</h2>
-            <p style="color:#777;">
-                Discover your skill gaps and get a personalized coding challenge.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        "### 🎯 Compare your resume with your dream job"
     )
 
-    # Resume and Job Description side by side
-    col1, col2 = st.columns(2)
+    resume = st.text_area(
+        "📄 Your Resume",
+        placeholder="Paste your resume text here...",
+        height=250,
+    )
 
-    with col1:
-
-        st.markdown("### 📄 Your Resume")
-
-        resume = st.text_area(
-            "Resume",
-            placeholder=(
-                "Paste your resume text here...\n\n"
-                "Example:\n"
-                "• Python\n"
-                "• JavaScript\n"
-                "• React\n"
-                "• Git"
-            ),
-            height=300,
-            label_visibility="collapsed",
-        )
-
-    with col2:
-
-        st.markdown("### 💼 Job Description")
-
-        job_description = st.text_area(
-            "Job Description",
-            placeholder=(
-                "Paste the job description here...\n\n"
-                "Example:\n"
-                "Looking for a Python developer with "
-                "REST API, Docker and testing skills..."
-            ),
-            height=300,
-            label_visibility="collapsed",
-        )
-
-    st.markdown("")
+    job_description = st.text_area(
+        "💼 Job Description",
+        placeholder="Paste your job description here...",
+        height=250,
+    )
 
     if st.button(
         "🔍 Analyze My Skills",
@@ -111,111 +170,202 @@ if st.session_state.page == "home":
 
         else:
 
-            with st.spinner("🤖 Analyzing your resume..."):
+            st.session_state.resume = resume
+            st.session_state.job_description = job_description
+
+            # =================================================
+            # AI RESUME ANALYSIS
+            # =================================================
+
+            with st.spinner("🤖 AI is analyzing your skills..."):
 
                 try:
 
-                    result = run_skillbridge_analysis(
+                    analysis = analyze_resume(
                         resume,
-                        job_description
+                        job_description,
                     )
 
-                    st.session_state.resume = resume
-                    st.session_state.job_description = job_description
-                    st.session_state.analysis_result = result
+                    # Check whether AI returned usable data
+                    if (
+                        not isinstance(analysis, dict)
+                        or "match_score" not in analysis
+                    ):
 
-                    st.session_state.page = "results"
+                        st.warning(
+                            "AI response was unavailable. "
+                            "Using SkillBridge demo analysis."
+                        )
 
-                    st.rerun()
+                        analysis = fallback_analysis()
 
                 except Exception as error:
 
-                    st.error(
-                        f"AI analysis failed: {error}"
+                    st.warning(
+                        "AI service is temporarily unavailable. "
+                        "Using SkillBridge fallback analysis."
                     )
 
+                    analysis = fallback_analysis()
 
-# ---------------- RESULTS PAGE ----------------
+                    print(
+                        "Analyzer error:",
+                        error,
+                    )
+
+            st.session_state.analysis = analysis
+
+            # =================================================
+            # GET SKILL GAPS
+            # =================================================
+
+            skill_gaps = analysis.get(
+                "skill_gaps",
+                analysis.get(
+                    "missing_skills",
+                    [],
+                ),
+            )
+
+            # =================================================
+            # AI QUESTION GENERATION
+            # =================================================
+
+            with st.spinner(
+                "🧠 Generating your personalized assessment..."
+            ):
+
+                try:
+
+                    questions = generate_questions(
+                        skill_gaps
+                    )
+
+                    if (
+                        not isinstance(questions, dict)
+                        or "questions" not in questions
+                        or not questions["questions"]
+                    ):
+
+                        questions = fallback_questions()
+
+                except Exception as error:
+
+                    print(
+                        "Question generator error:",
+                        error,
+                    )
+
+                    questions = fallback_questions()
+
+            st.session_state.questions = questions
+
+            st.session_state.page = "results"
+
+            st.rerun()
+
+
+# =====================================================
+# RESULTS PAGE
+# =====================================================
 
 elif st.session_state.page == "results":
 
     show_header()
 
     st.markdown(
-        """
-        <div style="text-align:center; margin-bottom:20px;">
-            <h2>📊 Your Skill Gap Analysis</h2>
-            <p style="color:#777;">
-                Here's how your profile matches the job requirements.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        "## 📊 Your Skill Gap Analysis"
     )
 
-    # Get AI analysis result
-    result = st.session_state.get(
-        "analysis_result",
-        {}
-    )
+    analysis = st.session_state.analysis
 
-    analysis = result.get(
-        "analysis",
-        {}
-    )
+    if not analysis:
+        analysis = fallback_analysis()
 
     score = analysis.get(
         "match_score",
-        0
+        0,
     )
 
     matched_skills = analysis.get(
         "matched_skills",
-        []
+        [],
     )
 
     missing_skills = analysis.get(
         "missing_skills",
-        []
+        [],
     )
+
+    strengths = analysis.get(
+        "strengths",
+        [],
+    )
+
+    recommendations = analysis.get(
+        "recommendations",
+        [],
+    )
+
+    # =================================================
+    # SCORE
+    # =================================================
 
     show_score(score)
 
     st.divider()
 
-    st.markdown(
-        """
-        <div style="text-align:center; margin:15px 0 25px 0;">
-            <h3>💡 What This Means</h3>
-            <p style="color:#777;">
-                You have a solid foundation for this role.
-                Strengthening the missing skills below can improve
-                your job readiness.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # =================================================
+    # SKILLS
+    # =================================================
 
     show_skills(
         matched_skills,
         missing_skills,
     )
 
+    # =================================================
+    # STRENGTHS
+    # =================================================
+
+    if strengths:
+
+        st.markdown(
+            "### 💪 Your Strengths"
+        )
+
+        for strength in strengths:
+
+            st.write(
+                f"✅ {strength}"
+            )
+
+    # =================================================
+    # RECOMMENDATIONS
+    # =================================================
+
+    if recommendations:
+
+        st.markdown(
+            "### 💡 Recommendations"
+        )
+
+        for recommendation in recommendations:
+
+            st.write(
+                f"• {recommendation}"
+            )
+
     st.divider()
 
-    st.markdown(
-        """
-        <div class="recommendation-box">
-            <h3>🎯 Recommended Next Step</h3>
-            <p>
-                Your personalized assessment will focus on one
-                of the skills you need to improve.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.info(
+        "🎯 SkillBridge has generated a personalized "
+        "assessment based on your skill gaps."
     )
+
+    # =================================================
+    # START ASSESSMENT
+    # =================================================
 
     if st.button(
         "🚀 Start Personalized Assessment",
@@ -227,136 +377,215 @@ elif st.session_state.page == "results":
 
         st.rerun()
 
+    # =================================================
+    # NEW ANALYSIS
+    # =================================================
+
     if st.button(
         "← Analyze Another Resume"
     ):
+
+        st.session_state.analysis = None
+        st.session_state.questions = None
+        st.session_state.selected_question = None
+        st.session_state.coding_result = None
 
         st.session_state.page = "home"
 
         st.rerun()
 
 
-# ---------------- ASSESSMENT PAGE ----------------
+# =====================================================
+# ASSESSMENT PAGE
+# =====================================================
 
 elif st.session_state.page == "assessment":
 
     show_header()
 
-    # Get AI-generated coding questions
-    result = st.session_state.get(
-        "analysis_result",
-        {}
+    st.markdown(
+        "## 🧠 Personalized Coding Assessment"
     )
 
-    questions_data = result.get(
-        "coding_questions",
-        {}
-    )
+    questions_data = st.session_state.questions
+
+    if not questions_data:
+        questions_data = fallback_questions()
 
     questions = questions_data.get(
         "questions",
-        []
+        [],
     )
 
-    if questions:
+    # =================================================
+    # NO QUESTIONS
+    # =================================================
 
-        question = questions[0]
+    if not questions:
 
-        challenge = {
-            "title": "Personalized Coding Challenge",
-            "description": question.get(
-                "question",
-                ""
-            ),
-            "difficulty": question.get(
-                "difficulty",
-                "Easy"
-            ),
-            "example_input": "Based on the problem statement",
-            "example_output": "Write your solution",
-        }
-
-    else:
-
-        challenge = {
-            "title": "Coding Challenge",
-            "description": (
-                "No personalized coding question "
-                "was generated."
-            ),
-            "difficulty": "Easy",
-            "example_input": "N/A",
-            "example_output": "N/A",
-        }
-
-    show_challenge(challenge)
-
-    st.markdown("### 🧑‍💻 Write Your Solution")
-
-    code = st.text_area(
-        "Python Code",
-        value="""def solution(numbers):
-    # Write your solution here
-    return sorted(numbers)
-""",
-        height=300,
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
+        st.error(
+            "No assessment questions were generated."
+        )
 
         if st.button(
-            "▶️ Run Code",
-            type="primary",
-            use_container_width=True,
-        ):
-
-            result = execute_solution(code)
-
-            if not result["success"]:
-
-                st.error(
-                    result["error"]
-                )
-
-            else:
-
-                try:
-
-                    test_input = [3, 1, 2]
-
-                    output = result["solution"](
-                        test_input
-                    )
-
-                    st.success(
-                        "✅ Code executed successfully!"
-                    )
-
-                    st.write(
-                        "Test Input:",
-                        test_input
-                    )
-
-                    st.write(
-                        "Your Output:",
-                        output
-                    )
-
-                except Exception as error:
-
-                    st.error(
-                        f"Runtime Error: {error}"
-                    )
-
-    with col2:
-
-        if st.button(
-            "← Back to Results",
-            use_container_width=True,
+            "← Back to Results"
         ):
 
             st.session_state.page = "results"
 
             st.rerun()
+
+    else:
+
+        # =================================================
+        # QUESTION SELECTOR
+        # =================================================
+
+        question_numbers = list(
+            range(
+                1,
+                len(questions) + 1,
+            )
+        )
+
+        selected_number = st.selectbox(
+            "Select Assessment Question",
+            question_numbers,
+        )
+
+        selected_question = questions[
+            selected_number - 1
+        ]
+
+        st.session_state.selected_question = (
+            selected_question
+        )
+
+        # =================================================
+        # CHALLENGE
+        # =================================================
+
+        challenge = {
+            "title": (
+                f"Question {selected_number}: "
+                f"{selected_question.get(
+                    'skill',
+                    'Skill Assessment'
+                )}"
+            ),
+            "description": selected_question.get(
+                "question",
+                "Complete the coding challenge.",
+            ),
+            "difficulty": selected_question.get(
+                "difficulty",
+                "Medium",
+            ),
+        }
+
+        show_challenge(challenge)
+
+        st.divider()
+
+        # =================================================
+        # CODING SECTION
+        # =================================================
+
+        st.markdown(
+            "### 🧑‍💻 Write Your Python Solution"
+        )
+
+        code = st.text_area(
+            "Python Code",
+            value="""def solution(numbers):
+    # Write your solution here
+    return sum(numbers)
+""",
+            height=300,
+        )
+
+        col1, col2 = st.columns(2)
+
+        # =================================================
+        # RUN CODE
+        # =================================================
+
+        with col1:
+
+            if st.button(
+                "▶️ Run Code",
+                type="primary",
+                use_container_width=True,
+            ):
+
+                execution = execute_solution(code)
+
+                # -----------------------------------------
+                # EXECUTION ERROR
+                # -----------------------------------------
+
+                if not execution["success"]:
+
+                    st.error(
+                        f"❌ {execution['error']}"
+                    )
+
+                # -----------------------------------------
+                # EVALUATE CODE
+                # -----------------------------------------
+
+                else:
+
+                    result = evaluate_solution(
+                        execution["solution"],
+                        DEFAULT_TEST_CASES,
+                    )
+
+                    st.session_state.coding_result = (
+                        result
+                    )
+
+                    st.success(
+                        f"Score: {result['score']}%"
+                    )
+
+                    st.markdown(
+                        f"**Passed:** "
+                        f"{result['passed_tests']} / "
+                        f"{result['total_tests']}"
+                    )
+
+                    # -------------------------------------
+                    # TEST RESULTS
+                    # -------------------------------------
+
+                    for test in result["results"]:
+
+                        if test["passed"]:
+
+                            st.success(
+                                f"Test {test['test_case']} "
+                                f"— PASS"
+                            )
+
+                        else:
+
+                            st.error(
+                                f"Test {test['test_case']} "
+                                f"— FAIL"
+                            )
+
+        # =================================================
+        # BACK BUTTON
+        # =================================================
+
+        with col2:
+
+            if st.button(
+                "← Back to Results",
+                use_container_width=True,
+            ):
+
+                st.session_state.page = "results"
+
+                st.rerun()
